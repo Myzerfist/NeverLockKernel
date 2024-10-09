@@ -327,7 +327,7 @@ int main()
                         }
 
                         left_click();
-                        std::cout << "shot" << std::endl;
+                        std::cout << "Left Clicked!" << std::endl;
                         Sleep(100); // Sleep for 10 milliseconds
 
                     }
