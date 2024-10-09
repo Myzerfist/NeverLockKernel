@@ -1,0 +1,62 @@
+;
+; NeverLockDriver.inf
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System ; TODO: specify appropriate Class
+ClassGuid   = {4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Provider    = %ManufacturerName%
+CatalogFile = NeverLockDriver.cat
+DriverVer = 10/09/2024,0.7.3.15
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+NeverLockDriver.sys = 1,,
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64.10.0...16299 ; %13% support introduced in build 16299
+
+[Standard.NTamd64.10.0...16299]
+%NeverLockDriver.DeviceDesc% = NeverLockDriver_Device, Root\NeverLockDriver ; TODO: edit hw-id
+
+[NeverLockDriver_Device.NT]
+CopyFiles = File_Copy
+
+[File_Copy]
+NeverLockDriver.sys
+
+;-------------- Service installation
+[NeverLockDriver_Device.NT.Services]
+AddService = NeverLockDriver,%SPSVCINST_ASSOCSERVICE%, NeverLockDriver_Service_Inst
+
+; -------------- NeverLockDriver driver install sections
+[NeverLockDriver_Service_Inst]
+DisplayName    = %NeverLockDriver.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\NeverLockDriver.sys
+
+[NeverLockDriver_Device.NT.Wdf]
+KmdfService = NeverLockDriver, NeverLockDriver_wdfsect
+
+[NeverLockDriver_wdfsect]
+KmdfLibraryVersion = 1.15
+
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+ManufacturerName = "<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+DiskName = "NeverLockDriver Installation Disk"
+NeverLockDriver.DeviceDesc = "NeverLockDriver Device"
+NeverLockDriver.SVCDESC = "NeverLockDriver Service"
