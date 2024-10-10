@@ -80,28 +80,23 @@ static std::uintptr_t get_module_base(const DWORD pid, const wchar_t* module_nam
 // Tried to make safe bhop and jumpbug
 void press_spacebar()
 {
-    // Press spacebar
     INPUT input = { 0 };
     input.type = INPUT_KEYBOARD;
-    input.ki.wVk = VK_SPACE;  // Virtual key code for spacebar
+    input.ki.wVk = VK_SPACE;
     SendInput(1, &input, sizeof(INPUT));
 
-    // Immediately release spacebar
     input.ki.dwFlags = KEYEVENTF_KEYUP;
     SendInput(1, &input, sizeof(INPUT));
 }
 
 void left_click() {
-    // Example of simulating a left mouse click using WinAPI
     INPUT input = { 0 };
     input.type = INPUT_MOUSE;
     input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-    SendInput(1, &input, sizeof(INPUT)); // Press down
+    SendInput(1, &input, sizeof(INPUT));
     input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-    SendInput(1, &input, sizeof(INPUT)); // Release
+    SendInput(1, &input, sizeof(INPUT));
 }
-
-
 
 namespace driver
 {
@@ -189,12 +184,20 @@ int main()
                 if (local_player_pawn == 0)
                     continue;
 
+                // Basic flags
                 const auto flags = driver::read_memory<std::uint32_t>(driver, local_player_pawn + cs2_dumper::schemas::client_dll::C_BaseEntity::m_fFlags);
                 const bool in_air = flags & (1 << 0);
                 const bool space_pressed = GetAsyncKeyState(VK_SPACE);
                 const auto force_jump = driver::read_memory<DWORD>(driver, client + cs2_dumper::buttons::jump);
 
+                // DEBUG Clear console
+                if (GetAsyncKeyState(VK_F10))
+                {
+                    system("cls");
+                    Sleep(500);
+                }
 
+                // Save Mode Keys
                 if (GetAsyncKeyState(VK_F5))
                 {
                     std::cout << "Safe mode disabled\n";
@@ -230,7 +233,7 @@ int main()
 
 
                 // NULLS
-                if (!in_air)
+                if (in_air)
                 {
 
                     const bool a_pressed = GetAsyncKeyState('A') & 0x8000;
@@ -300,38 +303,75 @@ int main()
                 const bool mmb_pressed = GetAsyncKeyState(VK_F1);
                 if (mmb_pressed)
                 {
-
                     const auto entity_list = driver::read_memory<std::uint32_t>(driver, client + cs2_dumper::offsets::client_dll::dwEntityList);
-
-                    for (int i = 0; i < 64; i++)
+                    if (!entity_list)
                     {
-                        const auto crossair_entity_index = driver::read_memory<int>(driver, local_player_pawn + cs2_dumper::schemas::client_dll::C_CSPlayerPawnBase::m_iIDEntIndex);
-                        if (crossair_entity_index < 0 || !crossair_entity_index)
-                        {
-                            std::cout << "Crosshair Entity Index: " << crossair_entity_index << std::endl;
-                            continue;
-                        }
+                        std::cout << "[-] Entity list is invalid\n";
+                        continue;
+                    }
 
-                        std::uintptr_t list_entry = driver::read_memory<std::uintptr_t>(driver, entity_list + (8 * (i & 0x7FFF) >> 9) + 16);
+                    int local_team = driver::read_memory<int>(driver, local_player_pawn + cs2_dumper::schemas::client_dll::C_BaseEntity::m_iTeamNum);
+                    int crossair_id = driver::read_memory<int>(driver, local_player_pawn + cs2_dumper::schemas::client_dll::C_CSPlayerPawnBase::m_iIDEntIndex);
+
+                    if (crossair_id > 0)
+                    {
+                        //if (crossair_id < 0 || !crossair_id)
+                        //{
+                        //    std::cout << "[-] Crossair id is invalid\n";
+                        //    continue;
+                        //}
+
+                        std::uintptr_t list_entry = driver::read_memory<std::uintptr_t>(driver, entity_list + 0x8 * (crossair_id >> 9) + 0x10);
                         if (!list_entry)
                         {
-                            std::cout << "List Entry Address: " << std::hex << list_entry << std::endl;
+                            std::cout << "[-] List entry invalid\n";
                             continue;
                         }
 
-                        const auto entity = driver::read_memory<std::uintptr_t>(driver, list_entry + 120 * (i & 0x1FF));
-                        if (!entity)
+                        //const auto entity_controller = driver::read_memory<std::uintptr_t>(driver, list_entry + 120 * (i & 0x7FFF));
+                        //if (!entity_controller)
+                        //{
+                        //    std::cout << "[-] Entity controller is invalid\n";
+                        //    continue;
+                        //}
+
+                        //const auto entity_controller_pawn = driver::read_memory<std::uint32_t>(driver, entity_controller + cs2_dumper::schemas::client_dll::CBasePlayerController::m_hPawn);
+                        //if (!entity_controller_pawn)
+                        //{
+                        //    std::cout << "[-] Entity controller pawn is invalid\n";
+                        //    continue;
+                        //}
+
+                        const auto entity_pawn = driver::read_memory<std::uintptr_t>(driver, list_entry + 120 * (crossair_id & 0x1FF));
+                        if (!entity_pawn)
                         {
-                            std::cout << "Entity Address: " << std::hex << entity << std::endl;
+                            std::cout << "[-] Entity pawn is invalid\n";
                             continue;
                         }
+
+                        int health = driver::read_memory<int>(driver, entity_pawn + cs2_dumper::schemas::client_dll::C_BaseEntity::m_iHealth);
+
+                        if (health <= 0)
+                        {
+                            std::cout << "[-] Target is dead\n";
+                            continue;
+                        }
+
+                        int entity_team = driver::read_memory<int>(driver, entity_pawn + cs2_dumper::schemas::client_dll::C_BaseEntity::m_iTeamNum);
+                        if (local_team != entity_team && health > 0)
+                        {
+                            std::cout << "[-] Target is a ally\n";
+                            continue;
+                        }
+
 
                         left_click();
-                        std::cout << "shot" << std::endl;
-                        Sleep(100); // Sleep for 10 milliseconds
-
+                        Sleep(100);
                     }
+
                 }
+
+                // Auto Accept
 
                 Sleep(1);
                 /*std::this_thread::sleep_for(std::chrono::milliseconds(1));*/
