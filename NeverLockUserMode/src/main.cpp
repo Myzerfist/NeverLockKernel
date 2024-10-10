@@ -9,9 +9,8 @@
 
 // TO DO LIST
 // - Make bhop use keystrokes
-// - Finish jumpbug
-// - Test NULLS
-// - Finish trigger bot
+// - Finish trigger bot (Done)
+// - Add auto accept
 
 static DWORD get_process_id(const wchar_t* process_name)
 {
@@ -231,79 +230,11 @@ int main()
                     }
                 }
 
-
-                // NULLS
-                if (in_air)
-                {
-
-                    const bool a_pressed = GetAsyncKeyState('A') & 0x8000;
-                    const bool d_pressed = GetAsyncKeyState('D') & 0x8000;
-
-                    INPUT input_a = { 0 };
-                    input_a.type = INPUT_KEYBOARD;
-                    input_a.ki.wVk = 'A';
-
-                    INPUT input_d = { 0 };
-                    input_d.type = INPUT_KEYBOARD;
-                    input_d.ki.wVk = 'D';
-
-                    if (a_pressed && !d_pressed)
-                    {
-                        SendInput(1, &input_a, sizeof(INPUT));
-
-                        input_d.ki.dwFlags = KEYEVENTF_KEYUP;
-                        SendInput(1, &input_d, sizeof(INPUT));
-                    }
-                    else if (d_pressed && !a_pressed)
-                    {
-                        SendInput(1, &input_d, sizeof(INPUT));
-
-                        input_a.ki.dwFlags = KEYEVENTF_KEYUP;
-                        SendInput(1, &input_a, sizeof(INPUT));
-                    }
-                    else if (!a_pressed && !d_pressed)
-                    {
-                        input_a.ki.dwFlags = KEYEVENTF_KEYUP;
-                        input_d.ki.dwFlags = KEYEVENTF_KEYUP;
-                        SendInput(1, &input_a, sizeof(INPUT));
-                        SendInput(1, &input_d, sizeof(INPUT));
-                    }
-                }
-
-                // Jumpbug
-                // Memory Writing
-                if (safemode == false)
-                {
-                    const bool mouse5_pressed = GetAsyncKeyState(VK_XBUTTON2);
-
-                    if (mouse5_pressed)
-                    {
-                        // jumps
-                        driver::write_memory(driver, client + cs2_dumper::buttons::jump, 65537);
-                        Sleep(5);
-                        driver::write_memory(driver, client + cs2_dumper::buttons::jump, 256);
-                        // Waits then crouches
-                        Sleep(100);
-                        driver::write_memory(driver, client + cs2_dumper::buttons::duck, 65537);
-                        // checks if player is on the ground if he is then it uncrouches and jumps
-                        if (!in_air)
-                        {
-                            driver::write_memory(driver, client + cs2_dumper::buttons::duck, 256);
-                            driver::write_memory(driver, client + cs2_dumper::buttons::jump, 65537);
-                            Sleep(10);
-                            driver::write_memory(driver, client + cs2_dumper::buttons::jump, 256);
-                        }
-
-
-
-                    }
-                }
-
                 // Triger Bot
-                const bool mmb_pressed = GetAsyncKeyState(VK_F1);
-                if (mmb_pressed)
+                const bool mouse5_button = GetAsyncKeyState(VK_XBUTTON2);
+                if (mouse5_button)
                 {
-                    const auto entity_list = driver::read_memory<std::uint32_t>(driver, client + cs2_dumper::offsets::client_dll::dwEntityList);
+                    const auto entity_list = driver::read_memory<std::uintptr_t>(driver, client + cs2_dumper::offsets::client_dll::dwEntityList);
                     if (!entity_list)
                     {
                         std::cout << "[-] Entity list is invalid\n";
@@ -315,11 +246,6 @@ int main()
 
                     if (crossair_id > 0)
                     {
-                        //if (crossair_id < 0 || !crossair_id)
-                        //{
-                        //    std::cout << "[-] Crossair id is invalid\n";
-                        //    continue;
-                        //}
 
                         std::uintptr_t list_entry = driver::read_memory<std::uintptr_t>(driver, entity_list + 0x8 * (crossair_id >> 9) + 0x10);
                         if (!list_entry)
@@ -327,20 +253,6 @@ int main()
                             std::cout << "[-] List entry invalid\n";
                             continue;
                         }
-
-                        //const auto entity_controller = driver::read_memory<std::uintptr_t>(driver, list_entry + 120 * (i & 0x7FFF));
-                        //if (!entity_controller)
-                        //{
-                        //    std::cout << "[-] Entity controller is invalid\n";
-                        //    continue;
-                        //}
-
-                        //const auto entity_controller_pawn = driver::read_memory<std::uint32_t>(driver, entity_controller + cs2_dumper::schemas::client_dll::CBasePlayerController::m_hPawn);
-                        //if (!entity_controller_pawn)
-                        //{
-                        //    std::cout << "[-] Entity controller pawn is invalid\n";
-                        //    continue;
-                        //}
 
                         const auto entity_pawn = driver::read_memory<std::uintptr_t>(driver, list_entry + 120 * (crossair_id & 0x1FF));
                         if (!entity_pawn)
@@ -360,13 +272,12 @@ int main()
                         int entity_team = driver::read_memory<int>(driver, entity_pawn + cs2_dumper::schemas::client_dll::C_BaseEntity::m_iTeamNum);
                         if (local_team != entity_team && health > 0)
                         {
-                            std::cout << "[-] Target is a ally\n";
-                            continue;
+                            left_click();
+                            Sleep(50);
                         }
 
 
-                        left_click();
-                        Sleep(100);
+
                     }
 
                 }
